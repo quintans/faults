@@ -42,4 +42,4 @@ If we have to create a new error on the fly, we can use `faults.New`
 return faults.New("Bad data")
 ```
 
-> Don't use this as a global variable because the stack trace will be relatively to the point it is instantiated
+> Don't use `faults.New` when declaring a global variable because the stack trace will be relatively to the point of declaration
