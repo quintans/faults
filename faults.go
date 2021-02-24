@@ -10,6 +10,27 @@ import (
 
 const maxStackLength = 50
 
+var formatter Formatter = TextFormatter{}
+
+func SetFormatter(f Formatter) {
+	formatter = f
+}
+
+type Formatter interface {
+	Format(err error, frames []runtime.Frame) string
+}
+
+type TextFormatter struct{}
+
+func (TextFormatter) Format(err error, frames []runtime.Frame) string {
+	var trace bytes.Buffer
+	trace.WriteString(err.Error())
+	for _, frame := range frames {
+		trace.WriteString(fmt.Sprintf("\n  %s:%d", frame.File, frame.Line))
+	}
+	return trace.String()
+}
+
 // Error is the type that implements the error interface.
 // It contains the underlying err and its stacktrace.
 type Error struct {
@@ -31,19 +52,18 @@ func (e *Error) Error() string {
 }
 
 func (e Error) getStackTrace(err error) string {
-	var trace bytes.Buffer
-	trace.WriteString(err.Error())
 	frames := runtime.CallersFrames(e.stack)
+	var fs []runtime.Frame
 	for {
 		frame, more := frames.Next()
 		if !strings.Contains(frame.File, "runtime/") {
-			trace.WriteString(fmt.Sprintf("\n\t%s:%d", frame.File, frame.Line))
+			fs = append(fs, frame)
 		}
 		if !more {
 			break
 		}
 	}
-	return trace.String()
+	return formatter.Format(err, fs)
 }
 
 // New returns a new error creates a new
