@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestWrapError(t *testing.T) {
@@ -43,8 +44,6 @@ func TestWrapError(t *testing.T) {
 			assert.Contains(t, err.Error(), tt.err.Error())
 			assert.True(t, IsError(err))
 			assert.Equal(t, 3, countLines(err.Error()))
-
-			fmt.Println(err)
 		})
 	}
 }
@@ -57,4 +56,31 @@ func countLines(s string) int {
 		}
 	}
 	return count
+}
+
+func TestTrace(t *testing.T) {
+	err := doStuff("Hello", 1)
+	require.NoError(t, err)
+
+	err = doStuff("World", -1)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "doStuff(a=World, b=-1): doAnotherStuff(b=-1): invalid argument")
+}
+
+var ErrInvalidArgument = errors.New("invalid argument")
+
+func doStuff(a string, b int) (err error) {
+	defer Trace(&err, "doStuff(a=%s, b=%d)", a, b)
+
+	return doAnotherStuff(b)
+}
+
+func doAnotherStuff(b int) (err error) {
+	defer Trace(&err, "doAnotherStuff(b=%d)", b)
+
+	if b <= 0 {
+		return ErrInvalidArgument
+	}
+
+	return nil
 }

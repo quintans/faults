@@ -106,3 +106,12 @@ func IsError(err error) bool {
 	var e *Error
 	return errors.As(err, &e)
 }
+
+func Trace(errp *error, format string, args ...interface{}) {
+	if *errp == nil {
+		return
+	}
+
+	s := fmt.Sprintf(format, args...)
+	*errp = fmt.Errorf("%s: %w", s, wrap(*errp))
+}
