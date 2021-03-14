@@ -12,13 +12,24 @@ err := errors.New("Bad data") // created by a call to an external lib
 err = faults.Errorf("Unable to process data: %w", err)
 ```
 
-The output of `err.Error()` will be the same as `fmt.Errorf` but with an added stack trace.
+The output of `err.Error()` will be the same as `fmt.Errorf`.
+
+```sh
+Unable to process data: Bad data
+```
+
+To print the stack trace we have to use `%+v`.
+
+```go
+fmt.Printf("%+v\n", err)
+```
 
 ```sh
 Unable to process data: Bad data
 	/.../app/process.go:28
 	/.../app/caller.go:1123
 ```
+
 
 Additional calls to `faults.Errorf` will not change the stack trace.
 
@@ -43,3 +54,35 @@ return faults.New("Bad data")
 ```
 
 > Don't use `faults.New` when declaring a global variable because the stack trace will be relatively to the point of declaration
+
+### Trace
+
+utility function to be used in our function calls to trace call values, for example.
+
+```go
+func doAnotherStuff(b int) (err error) {
+	defer Trace(&err, "doAnotherStuff(b=%d)", b)
+
+	if b <= 0 {
+		return ErrInvalidArgument
+	}
+
+	return nil
+}
+```
+
+on error this would output
+
+```sh
+doAnotherStuff(b=-1): invalid argument
+	/.../app/stuff.go:28
+	/.../app/caller.go:123
+```
+
+### WrapUp
+
+starts the caller stack trace one level up.
+This allows us to remove the extra stack trace line if we want to use this lib in custom utility code.
+
+eg: write a different `Trace()` method.
+
