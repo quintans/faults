@@ -8,7 +8,10 @@ import (
 	"strings"
 )
 
-const maxStackLength = 50
+const (
+	maxStackLength = 50
+	callerOffset   = 4
+)
 
 var formatter Formatter = TextFormatter{}
 
@@ -77,21 +80,26 @@ func getStackTrace(err error, stack []uintptr) string {
 
 // New returns a new error creates a new
 func New(text string) error {
-	return wrap(errors.New(text))
+	return wrap(errors.New(text), 0)
 }
 
 // Errorf creates a new error based on format and wraps it in a stack trace.
 // The format string can include the %w verb.
 func Errorf(format string, args ...interface{}) error {
-	return wrap(fmt.Errorf(format, args...))
+	return wrap(fmt.Errorf(format, args...), 0)
 }
 
 // Wrap annotates the given error with a stack trace
 func Wrap(err error) error {
-	return wrap(err)
+	return wrap(err, 0)
 }
 
-func wrap(err error) error {
+// WrapUp to be used by custom utility functions
+func WrapUp(err error) error {
+	return wrap(err, 1)
+}
+
+func wrap(err error, offset int) error {
 	if err == nil {
 		return err
 	}
@@ -113,23 +121,13 @@ func wrap(err error) error {
 		return newErr
 	}
 
-	return &Error{Err: err, stack: getStack()}
+	return &Error{Err: err, stack: getStack(offset)}
 }
 
-func getStack() []uintptr {
+func getStack(offset int) []uintptr {
 	stackBuf := make([]uintptr, maxStackLength)
-	length := runtime.Callers(4, stackBuf[:])
+	length := runtime.Callers(callerOffset+offset, stackBuf[:])
 	return stackBuf[:length]
-}
-
-// IsError checks if the error is of type Error
-func IsError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	var e *Error
-	return errors.As(err, &e)
 }
 
 func Trace(errp *error, format string, args ...interface{}) {
@@ -138,5 +136,5 @@ func Trace(errp *error, format string, args ...interface{}) {
 	}
 
 	s := fmt.Sprintf(format, args...)
-	*errp = wrap(fmt.Errorf("%s: %w", s, *errp))
+	*errp = wrap(fmt.Errorf("%s: %w", s, *errp), 0)
 }

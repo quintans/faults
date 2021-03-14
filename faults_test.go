@@ -49,8 +49,8 @@ func TestWrapError(t *testing.T) {
 
 			assert.Equal(t, "double wrapping: "+tt.msg, fmt.Sprintf("%s", err))
 			assert.Equal(t, "double wrapping: "+tt.msg, err.Error())
-			assert.True(t, IsError(err))
 			full := fmt.Sprintf("%+v", err)
+			fmt.Println(full)
 			assert.Equal(t, 3, countLines(full))
 		})
 	}
