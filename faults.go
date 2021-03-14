@@ -24,7 +24,7 @@ type TextFormatter struct{}
 
 func (TextFormatter) Format(err error, frames []runtime.Frame) string {
 	var trace bytes.Buffer
-	trace.WriteString(err.Error())
+	trace.WriteString(fmt.Sprintf("%+v", err))
 	for _, frame := range frames {
 		trace.WriteString(fmt.Sprintf("\n  %s:%d", frame.File, frame.Line))
 	}
@@ -45,14 +45,23 @@ func (e *Error) Unwrap() error {
 }
 
 func (e *Error) Error() string {
-	if e.stackTrace == "" {
-		e.stackTrace = e.getStackTrace(e.Err)
-	}
-	return e.stackTrace
+	return e.Err.Error()
 }
 
-func (e Error) getStackTrace(err error) string {
-	frames := runtime.CallersFrames(e.stack)
+func (e *Error) Format(s fmt.State, verb rune) {
+	if verb != 'v' || !s.Flag('+') || e.stack == nil {
+		s.Write([]byte(e.Error()))
+		return
+	}
+
+	if e.stackTrace == "" {
+		e.stackTrace = getStackTrace(e.Err, e.stack)
+	}
+	s.Write([]byte(e.stackTrace))
+}
+
+func getStackTrace(err error, stack []uintptr) string {
+	frames := runtime.CallersFrames(stack)
 	var fs []runtime.Frame
 	for {
 		frame, more := frames.Next()
@@ -83,9 +92,25 @@ func Wrap(err error) error {
 }
 
 func wrap(err error) error {
-	var e *Error
-	if err == nil || errors.As(err, &e) {
+	if err == nil {
 		return err
+	}
+
+	switch err.(type) {
+	case *Error:
+		return err
+	}
+
+	var e *Error
+	if errors.As(err, &e) {
+		// keeping the stack in the top level error
+		newErr := &Error{
+			Err:   err,
+			stack: e.stack,
+		}
+		// reset
+		*e = Error{Err: e.Err}
+		return newErr
 	}
 
 	return &Error{Err: err, stack: getStack()}
@@ -113,5 +138,5 @@ func Trace(errp *error, format string, args ...interface{}) {
 	}
 
 	s := fmt.Sprintf(format, args...)
-	*errp = fmt.Errorf("%s: %w", s, wrap(*errp))
+	*errp = wrap(fmt.Errorf("%s: %w", s, *errp))
 }

@@ -14,20 +14,24 @@ func TestWrapError(t *testing.T) {
 		name   string
 		err    error
 		format string
+		msg    string
 	}{
 		{
 			name: "plain error",
 			err:  errors.New("plain"),
+			msg:  "plain",
 		},
 		{
 			name:   "composit plain error",
 			err:    errors.New("something"),
 			format: "This has a message: %w",
+			msg:    "This has a message: something",
 		},
 		{
-			name:   "native plain error",
+			name:   "lib plain error",
 			err:    New("something"),
 			format: "This has a message: %w",
+			msg:    "This has a message: something",
 		},
 	}
 
@@ -41,9 +45,13 @@ func TestWrapError(t *testing.T) {
 			}
 
 			err = fmt.Errorf("double wrapping: %w", err)
-			assert.Contains(t, err.Error(), tt.err.Error())
+			err = Wrap(err)
+
+			assert.Equal(t, "double wrapping: "+tt.msg, fmt.Sprintf("%s", err))
+			assert.Equal(t, "double wrapping: "+tt.msg, err.Error())
 			assert.True(t, IsError(err))
-			assert.Equal(t, 3, countLines(err.Error()))
+			full := fmt.Sprintf("%+v", err)
+			assert.Equal(t, 3, countLines(full))
 		})
 	}
 }
