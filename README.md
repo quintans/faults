@@ -55,13 +55,13 @@ return faults.New("Bad data")
 
 > Don't use `faults.New` when declaring a global variable because the stack trace will be relatively to the point of declaration
 
-### Trace
+### Catch
 
 utility function to be used in our function calls to trace call values, for example.
 
 ```go
 func doAnotherStuff(b int) (err error) {
-	defer Trace(&err, "doAnotherStuff(b=%d)", b)
+	defer Catch(&err, "doAnotherStuff(b=%d)", b)
 
 	if b <= 0 {
 		return ErrInvalidArgument
@@ -84,5 +84,5 @@ doAnotherStuff(b=-1): invalid argument
 starts the caller stack trace one level up.
 This allows us to remove the extra stack trace line if we want to use this lib in custom utility code.
 
-eg: write a different `Trace()` method.
+eg: write a different `Catch()` method.
 
