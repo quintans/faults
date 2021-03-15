@@ -78,13 +78,13 @@ func TestTrace(t *testing.T) {
 var ErrInvalidArgument = errors.New("invalid argument")
 
 func doStuff(a string, b int) (err error) {
-	defer Trace(&err, "doStuff(a=%s, b=%d)", a, b)
+	defer Catch(&err, "doStuff(a=%s, b=%d)", a, b)
 
 	return doAnotherStuff(b)
 }
 
 func doAnotherStuff(b int) (err error) {
-	defer Trace(&err, "doAnotherStuff(b=%d)", b)
+	defer Catch(&err, "doAnotherStuff(b=%d)", b)
 
 	if b <= 0 {
 		return ErrInvalidArgument

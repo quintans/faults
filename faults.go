@@ -130,7 +130,7 @@ func getStack(offset int) []uintptr {
 	return stackBuf[:length]
 }
 
-func Trace(errp *error, format string, args ...interface{}) {
+func Catch(errp *error, format string, args ...interface{}) {
 	if *errp == nil {
 		return
 	}
