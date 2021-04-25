@@ -3,6 +3,7 @@ package faults
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -47,10 +48,11 @@ func TestWrapError(t *testing.T) {
 			err = fmt.Errorf("double wrapping: %w", err)
 			err = Wrap(err)
 
-			assert.Equal(t, "double wrapping: "+tt.msg, fmt.Sprintf("%s", err))
-			assert.Equal(t, "double wrapping: "+tt.msg, err.Error())
+			expect := "double wrapping: " + tt.msg
+			assert.Equal(t, expect, fmt.Sprintf("%s", err))
+			assert.Equal(t, expect, err.Error())
 			full := fmt.Sprintf("%+v", err)
-			fmt.Println(full)
+			assert.True(t, strings.HasPrefix(full, expect))
 			assert.Equal(t, 3, countLines(full))
 		})
 	}

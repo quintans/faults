@@ -20,51 +20,18 @@ func SetFormatter(f Formatter) {
 }
 
 type Formatter interface {
-	Format(err error, frames []runtime.Frame) string
+	Format(m Message) string
 }
 
-type TextFormatter struct{}
-
-func (TextFormatter) Format(err error, frames []runtime.Frame) string {
-	var trace bytes.Buffer
-	trace.WriteString(fmt.Sprintf("%+v", err))
-	for _, frame := range frames {
-		trace.WriteString(fmt.Sprintf("\n  %s:%d", frame.File, frame.Line))
-	}
-	return trace.String()
+type Message struct {
+	FromError bool
+	Err       error
+	Expand    bool
+	stack     []uintptr
 }
 
-// Error is the type that implements the error interface.
-// It contains the underlying err and its stacktrace.
-type Error struct {
-	Err        error
-	stack      []uintptr
-	stackTrace string
-}
-
-// Unwrap unpacks wrapped errors
-func (e *Error) Unwrap() error {
-	return e.Err
-}
-
-func (e *Error) Error() string {
-	return e.Err.Error()
-}
-
-func (e *Error) Format(s fmt.State, verb rune) {
-	if verb != 'v' || !s.Flag('+') || e.stack == nil {
-		s.Write([]byte(e.Error()))
-		return
-	}
-
-	if e.stackTrace == "" {
-		e.stackTrace = getStackTrace(e.Err, e.stack)
-	}
-	s.Write([]byte(e.stackTrace))
-}
-
-func getStackTrace(err error, stack []uintptr) string {
-	frames := runtime.CallersFrames(stack)
+func (m Message) Frames() []runtime.Frame {
+	frames := runtime.CallersFrames(m.stack)
 	var fs []runtime.Frame
 	for {
 		frame, more := frames.Next()
@@ -75,7 +42,44 @@ func getStackTrace(err error, stack []uintptr) string {
 			break
 		}
 	}
-	return formatter.Format(err, fs)
+	return fs
+}
+
+type TextFormatter struct{}
+
+func (TextFormatter) Format(m Message) string {
+	if m.FromError || !m.Expand {
+		return m.Err.Error()
+	}
+
+	var trace bytes.Buffer
+	trace.WriteString(fmt.Sprintf("%+v", m.Err))
+	for _, frame := range m.Frames() {
+		trace.WriteString(fmt.Sprintf("\n    %s:%d", frame.File, frame.Line))
+	}
+	return trace.String()
+}
+
+// Error is the type that implements the error interface.
+// It contains the underlying err and its stacktrace.
+type Error struct {
+	Err   error
+	stack []uintptr
+}
+
+// Unwrap unpacks wrapped errors
+func (e *Error) Unwrap() error {
+	return e.Err
+}
+
+func (e *Error) Error() string {
+	return formatter.Format(Message{FromError: true, Err: e.Err, stack: e.stack})
+}
+
+func (e *Error) Format(s fmt.State, verb rune) {
+	expand := verb == 'v' && s.Flag('+') && e.stack != nil
+	text := formatter.Format(Message{Expand: expand, Err: e.Err, stack: e.stack})
+	s.Write([]byte(text))
 }
 
 // New returns a new error creates a new
