@@ -98,6 +98,18 @@ func Wrap(err error) error {
 	return wrap(err, 0)
 }
 
+// Wrapf creates a new error based on format and wraps it in a stack trace,
+// only if error is not nil
+// The format string cannot include the %w verb.
+// error will concatenated to format like: format + ": %w"
+func Wrapf(err error, format string, args ...interface{}) error {
+	if err == nil {
+		return nil
+	}
+	args = append(args, err)
+	return wrap(fmt.Errorf(format+": %w", args...), 0)
+}
+
 // WrapUp to be used by custom utility functions
 func WrapUp(err error) error {
 	return wrap(err, 1)
