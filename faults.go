@@ -1,7 +1,6 @@
 package faults
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"runtime"
@@ -13,71 +12,73 @@ const (
 	callerOffset   = 4
 )
 
-var formatter Formatter = TextFormatter{}
-
-func SetFormatter(f Formatter) {
-	formatter = f
-}
-
-type Formatter interface {
-	Format(m Message) string
-}
-
-type Message struct {
-	Err    error
-	Expand bool
+// rootError is the type that implements the error interface.
+// It contains the underlying err and its stacktrace.
+type rootError struct {
+	err    error
 	stack  []uintptr
+	frames []runtime.Frame
 }
 
-func (m Message) Frames() []runtime.Frame {
+func (m *rootError) Frames() []runtime.Frame {
+	if m.frames != nil {
+		return m.frames
+	}
+
+	if m.stack == nil {
+		return nil
+	}
+
 	frames := runtime.CallersFrames(m.stack)
 	var fs []runtime.Frame
 	for {
 		frame, more := frames.Next()
-		if !strings.Contains(frame.File, "runtime/") {
-			fs = append(fs, frame)
+		if strings.Contains(frame.File, "runtime/") {
+			break
 		}
+		fs = append(fs, frame)
 		if !more {
 			break
 		}
 	}
+
+	m.frames = fs
 	return fs
 }
 
-type TextFormatter struct{}
-
-func (TextFormatter) Format(m Message) string {
-	if !m.Expand {
-		return m.Err.Error()
-	}
-
-	var trace bytes.Buffer
-	trace.WriteString(fmt.Sprintf("%+v", m.Err))
-	for _, frame := range m.Frames() {
-		trace.WriteString(fmt.Sprintf("\n    %s:%d", frame.File, frame.Line))
-	}
-	return trace.String()
+// Unwrap unpacks wrapped errors
+func (e *rootError) Unwrap() error {
+	return e.err
 }
 
-// Error is the type that implements the error interface.
-// It contains the underlying err and its stacktrace.
-type Error struct {
-	Err   error
-	stack []uintptr
+func (e *rootError) Error() string {
+	return e.err.Error()
+}
+
+type wrapError struct {
+	err error
 }
 
 // Unwrap unpacks wrapped errors
-func (e *Error) Unwrap() error {
-	return e.Err
+func (e *wrapError) Unwrap() error {
+	return e.err
 }
 
-func (e *Error) Error() string {
-	return formatter.Format(Message{Expand: false, Err: e.Err, stack: e.stack})
+func (e *wrapError) Error() string {
+	return e.err.Error()
 }
 
-func (e *Error) Format(s fmt.State, verb rune) {
-	expand := verb == 'v' && s.Flag('+') && e.stack != nil
-	text := formatter.Format(Message{Expand: expand, Err: e.Err, stack: e.stack})
+func (e *wrapError) Format(s fmt.State, verb rune) {
+	var r *rootError
+	var text string
+
+	if errors.As(e.err, &r) {
+		expand := verb == 'v' && s.Flag('+') && r.stack != nil
+		text = formatter.Format(Message{Expand: expand, Err: e.err, frames: r.Frames()})
+	} else {
+		text = e.err.Error()
+	}
+
 	s.Write([]byte(text))
 }
 
@@ -119,28 +120,20 @@ func wrap(err error, offset int) error {
 		return nil
 	}
 
-	if _, ok := err.(*Error); ok {
-		return err
-	}
-
-	var e *Error
+	var e *wrapError
 	if errors.As(err, &e) {
-		// keeping the stack in the top level error
-		newErr := &Error{
-			Err:   err,
-			stack: e.stack,
-		}
-		// reset
-		*e = Error{Err: e.Err}
-		return newErr
+		return &wrapError{err}
 	}
 
-	return &Error{Err: err, stack: getStack(offset)}
+	return &wrapError{&rootError{err: err, stack: getStack(offset)}}
 }
 
 func getStack(offset int) []uintptr {
 	stackBuf := make([]uintptr, maxStackLength)
-	length := runtime.Callers(callerOffset+offset, stackBuf[:])
+	length := runtime.Callers(callerOffset+offset, stackBuf)
+	if length == 0 {
+		return nil
+	}
 	return stackBuf[:length]
 }
 

@@ -52,8 +52,8 @@ func TestWrapError(t *testing.T) {
 			assert.Equal(t, expect, fmt.Sprintf("%s", err))
 			assert.Equal(t, expect, err.Error())
 			full := fmt.Sprintf("%+v", err)
-			assert.True(t, strings.HasPrefix(full, expect))
-			assert.Equal(t, 3, countLines(full))
+			assert.True(t, strings.HasPrefix(full, expect), full)
+			assert.Equal(t, 3, countLines(full), full)
 		})
 	}
 }
