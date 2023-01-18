@@ -24,10 +24,9 @@ type Formatter interface {
 }
 
 type Message struct {
-	FromError bool
-	Err       error
-	Expand    bool
-	stack     []uintptr
+	Err    error
+	Expand bool
+	stack  []uintptr
 }
 
 func (m Message) Frames() []runtime.Frame {
@@ -48,7 +47,7 @@ func (m Message) Frames() []runtime.Frame {
 type TextFormatter struct{}
 
 func (TextFormatter) Format(m Message) string {
-	if m.FromError || !m.Expand {
+	if !m.Expand {
 		return m.Err.Error()
 	}
 
@@ -73,7 +72,7 @@ func (e *Error) Unwrap() error {
 }
 
 func (e *Error) Error() string {
-	return formatter.Format(Message{FromError: true, Err: e.Err, stack: e.stack})
+	return formatter.Format(Message{Expand: false, Err: e.Err, stack: e.stack})
 }
 
 func (e *Error) Format(s fmt.State, verb rune) {
@@ -117,11 +116,10 @@ func WrapUp(err error) error {
 
 func wrap(err error, offset int) error {
 	if err == nil {
-		return err
+		return nil
 	}
 
-	switch err.(type) {
-	case *Error:
+	if _, ok := err.(*Error); ok {
 		return err
 	}
 
