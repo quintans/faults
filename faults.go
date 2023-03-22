@@ -82,6 +82,17 @@ func (e *wrapError) Format(s fmt.State, verb rune) {
 	s.Write([]byte(text))
 }
 
+func ToString(err error) string {
+	var r *rootError
+
+	if errors.As(err, &r) {
+		expand := r.stack != nil
+		return formatter.Format(Message{Expand: expand, Err: err, frames: r.Frames()})
+	}
+
+	return err.Error()
+}
+
 // New returns a new error creates a new
 func New(text string) error {
 	return wrap(errors.New(text), 0)
