@@ -23,7 +23,7 @@ func TestWrapError(t *testing.T) {
 			msg:  "plain",
 		},
 		{
-			name:   "composit plain error",
+			name:   "composite plain error",
 			err:    errors.New("something"),
 			format: "This has a message: %w",
 			msg:    "This has a message: something",
@@ -52,6 +52,7 @@ func TestWrapError(t *testing.T) {
 			assert.Equal(t, expect, fmt.Sprintf("%s", err))
 			assert.Equal(t, expect, err.Error())
 			full := fmt.Sprintf("%+v", err)
+			fmt.Printf("===> %+v\n", err)
 			assert.True(t, strings.HasPrefix(full, expect), full)
 			assert.Equal(t, 3, countLines(full), full)
 		})
@@ -66,6 +67,19 @@ func countLines(s string) int {
 		}
 	}
 	return count
+}
+
+func TestCustomWrapError(t *testing.T) {
+	err := customFunc1()
+	fmt.Printf("%+v\n", err)
+}
+
+func customFunc1() error {
+	return Wrap(Custom(customFunc2()))
+}
+
+func customFunc2() error {
+	return New("not feeling well")
 }
 
 func TestTrace(t *testing.T) {
@@ -93,4 +107,30 @@ func doAnotherStuff(b int) (err error) {
 	}
 
 	return nil
+}
+
+type CustomError struct {
+	Err error
+}
+
+func (e *CustomError) Error() string {
+	return e.Err.Error()
+}
+
+func (e *CustomError) Unwrap() error {
+	return e.Err
+}
+
+func (e *CustomError) Is(target error) bool {
+	_, ok := target.(*CustomError)
+	return ok
+}
+
+func Custom(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &CustomError{
+		Err: err,
+	}
 }

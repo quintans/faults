@@ -24,7 +24,7 @@ func (TextFormatter) Format(m Message) string {
 	}
 
 	var trace bytes.Buffer
-	trace.WriteString(fmt.Sprintf("%+v", m.Err))
+	trace.WriteString(m.Err.Error())
 	for _, frame := range m.Frames() {
 		trace.WriteString(fmt.Sprintf("\n    %s:%d", frame.File, frame.Line))
 	}
