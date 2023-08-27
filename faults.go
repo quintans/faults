@@ -148,6 +148,24 @@ func getStack(offset int) []uintptr {
 	return stackBuf[:length]
 }
 
+// Catch allow us to implement a different pattern of error tracing where it is the responsibility of the callee to say that it was called.
+// This allows us to not worry about adding an message on every error return.
+//
+//	func (o *Something) MethodM(a TypeA) (_ Stuff, er error) {
+//		defer faults.Catch(&er, "calling MethodM(a=%v)", a)
+//
+//		x, err := doSomething(a) // will also have a Catch() inside
+//		if err != nil {
+//			return Stuff{}, faults.Wrap(err)
+//		}
+//		s, err := stuff.New(a, x)  // will also have a Catch() inside
+//		if err != nil {
+//			return Stuff{}, faults.Wrap(err)
+//		}
+//		return s, nil
+//	}
+//
+// where the error message would be: "calling MethodM(a=-2): calling doSomething(a=-2): value must > 0"
 func Catch(errp *error, format string, args ...interface{}) {
 	if *errp == nil {
 		return
